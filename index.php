@@ -16,7 +16,7 @@ try {
 $user_id = $_SERVER['REMOTE_ADDR'];
 
 // Eğer bir POST isteği geldiyse işaretli günleri kaydet
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['completed_days'])) {
     $completed_days = $_POST['completed_days']; // JSON formatında gelen günler
 
     // Veritabanında kullanıcı kaydı var mı kontrol et
@@ -35,10 +35,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Kullanıcıya ait günleri veritabanından çekme
+// Kullanıcıya ait günleri ve hedef gün sayısını alıyoruz
 $stmt = $pdo->prepare("SELECT completed_days FROM progress WHERE user_id = ?");
 $stmt->execute([$user_id]);
 $completed_days = $stmt->fetchColumn() ?: '[]';
+
+$target_days = 100; // Varsayılan hedef gün sayısı
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['target_days'])) {
+    $target_days = (int)$_POST['target_days'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -46,52 +51,31 @@ $completed_days = $stmt->fetchColumn() ?: '[]';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>100 Days Challenge</title>
-    <script src="script.js" defer></script>
+    <title>Days Challenge</title>
 
     <style>
         body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-color: rgb(32, 32, 60);
-    color: white;
-}
-
-.confetti {
-        position: absolute;
-        width: 5px;
-        height: 5px;
-        border-radius: 100%;
-        animation: 700ms fall ease-in-out;
-        opacity: 0;
-      }
-
-      @keyframes fall {
-        0% {
-          opacity: 1;
+            margin: 0;
+            padding: 0;
+            background-color: rgb(32, 32, 60);
+            color: white;
+            overflow-y: auto;
+            text-align: center;
         }
-        100% {
-          transform: translateY(100px);
-          opacity: 0;
+
+        h1 {
+            text-align: center;
+            margin-top: 20px;
         }
-      }
- 
-
-h1 {
-    text-align: center;
-    margin-top: 20px;
-}
-
-
 
         .container {
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
             gap: 10px;
-            width: 500px;
-            margin: 0 auto;
+            max-width: 90%;
+            margin: 20px auto;
         }
+
         .day {
             width: 40px;
             height: 40px;
@@ -101,58 +85,99 @@ h1 {
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            user-select: none;
         }
+
         .day.completed {
             background-color: green;
             color: white;
         }
+
+        .confetti {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            border-radius: 100%;
+            animation: 700ms fall ease-in-out;
+            opacity: 0;
+        }
+
+        @keyframes fall {
+            0% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+        }
+
+        .form-container {
+            margin: 20px;
+        }
+
+        .form-container input {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 90px;
+        }
+
+        .form-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 90px;
+        }
+
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">100 Days Challenge</h1>
+    <div class="form-container">
+        <form method="POST">
+            <label for="target_days">Select target number of days: </label>
+            <input type="number" name="target_days" id="target_days" min="1" value="<?php echo $target_days; ?>" required>
+            <button type="submit">save</button>
+        </form>
+    </div>
+
+    <h1><?php echo $target_days; ?> Days Challenge</h1>
     <div class="container" id="days-container"></div>
 
     <script>
+        // Confetti etkisi
         document.addEventListener("mousemove", function (event) {
-  for (const i = 0; i < 5; i++) {
-    const confetti = document.createElement("div")
-    confetti.classList.add("confetti")
-    document.body.appendChild(confetti)
+            for (let i = 0; i < 5; i++) {
+                const confetti = document.createElement("div");
+                confetti.classList.add("confetti");
+                document.body.appendChild(confetti);
 
-    const randomX = Math.floor(Math.random() * 30)
-    const randomY = Math.floor(Math.random() * 30)
+                const randomX = Math.floor(Math.random() * 30);
+                const randomY = Math.floor(Math.random() * 30);
 
-    confetti.style.left = event.clientX + randomX + "px"
-    confetti.style.top = event.clientY + randomY + "px"
+                confetti.style.left = event.clientX + randomX + "px";
+                confetti.style.top = event.clientY + randomY + "px";
 
-    const randomColor = Math.floor(Math.random() * 256)
-    confetti.style.backgroundColor = "rgb(256, 256, " + randomColor + ")"
+                const randomColor = Math.floor(Math.random() * 256);
+                confetti.style.backgroundColor = "rgb(256, 256, " + randomColor + ")";
 
-    // const randomAngle = Math.floor(Math.random() * 360)
-    // confetti.style.transform = `rotate(${randomAngle}deg)`
+                setTimeout(() => {
+                    document.body.removeChild(confetti);
+                }, 500);
+            }
+        });
 
-    // const randomSkew = Math.floor(Math.random() * 10)
-    // confetti.style.transform += `skew(${randomSkew}deg, ${randomSkew}deg)`
-
-    setInterval(() => {
-      document.body.removeChild(confetti)
-    }, 500)
-  }
-})
-
-        // PHP'den gelen JSON verisini alıyoruz .. confet işlemi bitti
         const completedDays = JSON.parse(<?php echo json_encode($completed_days); ?>);
+        const targetDays = <?php echo $target_days; ?>;
 
         const container = document.getElementById('days-container');
 
-        // 100 tane kutucuk oluştur
-        for (let i = 1; i <= 100; i++) {
+        // Dinamik olarak kutucukları oluştur
+        for (let i = 1; i <= targetDays; i++) {
             const day = document.createElement('div');
             day.classList.add('day');
             day.innerText = i;
             day.setAttribute('data-day', i);
 
-            // Eğer gün işaretlenmişse "completed" sınıfını ekle
             if (completedDays.includes(i.toString())) {
                 day.classList.add('completed');
             }
@@ -165,20 +190,18 @@ h1 {
             container.appendChild(day);
         }
 
-        // İşaretlenen günleri sunucuya kaydetme
         function saveProgress() {
             const completedDays = [];
             document.querySelectorAll('.day.completed').forEach(day => {
                 completedDays.push(day.getAttribute('data-day'));
             });
 
-            // Veriyi sunucuya gönder
             fetch('', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'completed_days=' + JSON.stringify(completedDays)
             }).then(response => response.text()).then(data => {
-                console.log(data); // Sunucudan gelen yanıtı konsola yazdır
+                console.log(data);
             });
         }
     </script>
